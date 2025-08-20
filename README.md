@@ -17,3 +17,23 @@ medical_multi_agent_system/
     ├── code_generation_agent.py
     └── quality_assurance_agent.py
 ```
+
+## Agent Architecture
+The system uses **Langraph** to orchestrate 5 specialized agents:
+
+1. **Data Analysis Agent** - Analyzes data quality and identifies issues
+2. **Medical Knowledge Agent** - Validates medical terminology and clinical data  
+3. **Cleaning Strategy Agent** - Develops optimal cleaning strategies
+4. **Code Generation Agent** - Creates executable Python cleaning code
+5. **Quality Assurance Agent** - Validates results and ensures data integrity
+
+## Usage
+1. Upload your medical dataset (CSV/Excel)
+2. Click "Start Multi-Agent Processing"
+3. Review agent results in organized tabs
+4. Download cleaned data and generated code
+5. Interact with agents via the query interface
+
+## Requirements
+- Python 3.8+
+- OpenAI API key
