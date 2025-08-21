@@ -142,8 +142,7 @@ def display_cleaning_results(cleaning_result):
                 st.write(f"Shape: {cleaned_shape}")
 
 def main():
-    st.title("🏥 GoML Multi-Agent Medical Data Cleaning System")
-    st.markdown("**Simplified 3-Agent Architecture: Data Analysis → Medical Validation → Direct Cleaning**")
+    st.title("🏥 Multi-Agent Medical Data Cleaning System")
     st.markdown("---")
     
     # Initialize session state for queries and responses
@@ -242,7 +241,7 @@ def main():
                     st.metric("Duplicates", int(df.duplicated().sum()))
             
             # Process button
-            if st.button("🚀 Start 3-Agent Processing Pipeline", type="primary"):
+            if st.button("🚀 Start Multi-Agent Processing Pipeline", type="primary"):
                 with st.spinner("🤖 Running 3-Agent Pipeline: Analysis → Validation → Cleaning..."):
                     try:
                         orchestrator = MedicalDataOrchestrator()
@@ -350,7 +349,7 @@ def main():
     else:
         # Welcome screen
         st.markdown("""
-        ## This streamlined system uses **3 specialized AI agents** for efficient medical data cleaning:
+        ### System uses 3 Agents for medical data cleaning:
         
         - 🔍 **Data Analysis Agent**: Identifies data quality issues and patterns
         - 🏥 **Medical Knowledge Agent**: Validates and corrects medical terminology
@@ -363,9 +362,7 @@ def main():
         
         ### What Gets Cleaned:
         - ✅ Medical terminology corrections (typos, abbreviations, standardizations)
-        - ✅ Missing value imputation
         - ✅ Duplicate removal
-        - ✅ Outlier handling
         - ✅ Text standardization
         
         """)
