@@ -6,7 +6,7 @@ import json
 from orchestrator import MedicalDataOrchestrator
 
 st.set_page_config(
-    page_title="GoML Multi-Agent Medical Data Cleaning System",
+    page_title="Multi-Agent Medical Data Cleaning System",
     page_icon="🏥",
     layout="wide"
 )
@@ -64,6 +64,51 @@ def process_user_query(query: str, df: pd.DataFrame = None, results: dict = None
     
     Please be more specific about what you'd like to know!
     """
+
+def display_terminology_report(validation_result):
+    """Display medical terminology validation results in a user-friendly format"""
+    
+    if "terminology_report" in validation_result:
+        terminology_report = validation_result["terminology_report"]
+        summary = validation_result.get("summary", {})
+        
+        # Display summary metrics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Spelling Corrections", summary.get("corrections_count", 0))
+        with col2:
+            st.metric("Standardizations", summary.get("standardizations_count", 0))
+        with col3:
+            st.metric("Abbreviation Expansions", summary.get("expansions_count", 0))
+        with col4:
+            st.metric("Total Issues Found", summary.get("total_issues", 0))
+        
+        # Display detailed findings
+        if terminology_report.get("corrections"):
+            st.subheader("🔤 Spelling Corrections")
+            corrections_df = pd.DataFrame([
+                {"Original": orig, "Corrected": corr} 
+                for orig, corr in terminology_report["corrections"].items()
+            ])
+            st.dataframe(corrections_df, use_container_width=True)
+        
+        if terminology_report.get("standardizations"):
+            st.subheader("📋 Standardizations") 
+            standardizations_df = pd.DataFrame([
+                {"Original": orig, "Standardized": std} 
+                for orig, std in terminology_report["standardizations"].items()
+            ])
+            st.dataframe(standardizations_df, use_container_width=True)
+        
+        if terminology_report.get("expansions"):
+            st.subheader("🔍 Abbreviation Expansions")
+            expansions_df = pd.DataFrame([
+                {"Abbreviation": abbr, "Full Form": full} 
+                for abbr, full in terminology_report["expansions"].items()
+            ])
+            st.dataframe(expansions_df, use_container_width=True)
+    else:
+        st.json(validation_result)
 
 def main():
     st.title("🏥 GoML Multi-Agent Medical Data Cleaning System")
@@ -189,7 +234,9 @@ def main():
                 
                 with tab2:
                     st.header("🏥 Medical Knowledge Validation")
-                    st.json(results['validation_result'])
+                    # Use the enhanced display for terminology validation
+                    validation_result = results['validation_result']['validation_result']
+                    display_terminology_report(validation_result)
                 
                 with tab3:
                     st.header("🧹 Cleaning Strategy")
@@ -268,10 +315,13 @@ def main():
                         fig.update_layout(height=400, showlegend=False)
                         st.plotly_chart(fig, use_container_width=True)
                 
-                # Agent messages
-                st.header("📝 Agent Processing Log")
-                for i, message in enumerate(results['messages']):
-                    st.text(f"{i+1}. {message}")
+                # UPDATED: Agent messages displayed as an expander
+                with st.expander("📝 Agent Processing Log", expanded=False):
+                    if 'messages' in results and results['messages']:
+                        for i, message in enumerate(results['messages']):
+                            st.text(f"{i+1}. {message}")
+                    else:
+                        st.info("No processing messages available.")
         
         except Exception as e:
             st.error(f"Error loading file: {str(e)}")
@@ -318,10 +368,7 @@ def main():
                     st.write(query)
                     st.markdown("**Agent Response:**")
                     st.markdown(response)
-    
-    # Footer
-    st.markdown("---")
-    st.markdown("🏥 **GoML August Hackathon** - Multi-Agent Medical Data Processing System")
+
 
 if __name__ == "__main__":
     main()
