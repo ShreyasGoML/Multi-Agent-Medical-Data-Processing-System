@@ -11,9 +11,69 @@ st.set_page_config(
     layout="wide"
 )
 
+def process_user_query(query: str, df: pd.DataFrame = None, results: dict = None):
+    """Process user query and route to appropriate agents"""
+    
+    # Initialize orchestrator and agents
+    orchestrator = MedicalDataOrchestrator()
+    
+    # Determine which agent should handle the query based on keywords
+    query_lower = query.lower()
+    
+    if any(word in query_lower for word in ['analyze', 'analysis', 'missing', 'duplicate', 'quality']):
+        if df is not None:
+            agent_response = orchestrator.data_analysis_agent.analyze(df)
+            return f"**Data Analysis Agent Response:**\n{json.dumps(agent_response, indent=2)}"
+    
+    elif any(word in query_lower for word in ['medical', 'terminology', 'diagnosis', 'biomarker', 'clinical']):
+        if df is not None:
+            agent_response = orchestrator.medical_knowledge_agent.validate(df)
+            return f"**Medical Knowledge Agent Response:**\n{json.dumps(agent_response, indent=2)}"
+    
+    elif any(word in query_lower for word in ['clean', 'cleaning', 'strategy', 'impute', 'outlier']):
+        if results and 'analysis_result' in results and 'validation_result' in results:
+            agent_response = orchestrator.cleaning_strategy_agent.plan(
+                results['analysis_result'], 
+                results['validation_result']
+            )
+            return f"**Cleaning Strategy Agent Response:**\n{json.dumps(agent_response, indent=2)}"
+    
+    elif any(word in query_lower for word in ['code', 'generate', 'python', 'script']):
+        if results and 'cleaning_strategy' in results:
+            agent_response = orchestrator.code_generation_agent.generate_code(results['cleaning_strategy'])
+            return f"**Code Generation Agent Response:**\n``````"
+    
+    elif any(word in query_lower for word in ['quality', 'qa', 'assurance', 'validate']):
+        if results and 'cleaned_dataframe' in results:
+            original_df = results.get('original_dataframe', df)
+            agent_response = orchestrator.qa_agent.validate(original_df, results['cleaned_dataframe'])
+            return f"**Quality Assurance Agent Response:**\n{json.dumps(agent_response, indent=2)}"
+    
+    # General query - route to most appropriate agent or provide guidance
+    return f"""
+    **Multi-Agent System Response:**
+    
+    Your query: "{query}"
+    
+    I can help you with:
+    - **Data Analysis**: Ask about missing values, duplicates, data quality
+    - **Medical Knowledge**: Ask about medical terminology, diagnoses, biomarkers  
+    - **Cleaning Strategy**: Ask about data cleaning approaches and methods
+    - **Code Generation**: Ask for Python code to clean your data
+    - **Quality Assurance**: Ask about data validation and quality checks
+    
+    Please be more specific about what you'd like to know!
+    """
+
 def main():
     st.title("🏥 GoML Multi-Agent Medical Data Cleaning System")
     st.markdown("---")
+    
+    # Initialize session state for queries and responses
+    if 'user_queries' not in st.session_state:
+        st.session_state.user_queries = []
+    if 'agent_responses' not in st.session_state:
+        st.session_state.agent_responses = []
     
     # Sidebar for file upload and controls
     with st.sidebar:
@@ -31,14 +91,48 @@ def main():
         st.header("🤖 Agent Interaction")
         user_query = st.text_area(
             "Ask the agents:", 
-            placeholder="Ask questions about your data or cleaning process..."
+            placeholder="Example: 'Analyze the missing values in my data' or 'What medical terms need validation?'"
         )
         
         if st.button("💬 Send Query"):
             if user_query:
-                st.session_state.user_queries = st.session_state.get('user_queries', [])
+                # Get current data and results
+                current_df = None
+                current_results = None
+                
+                if uploaded_file:
+                    if uploaded_file.name.endswith('.csv'):
+                        current_df = pd.read_csv(uploaded_file)
+                    else:
+                        current_df = pd.read_excel(uploaded_file)
+                
+                if 'results' in st.session_state:
+                    current_results = st.session_state.results
+                
+                # Process the query with agents
+                with st.spinner("🤖 Agents are processing your query..."):
+                    agent_response = process_user_query(user_query, current_df, current_results)
+                
+                # Save query and response
                 st.session_state.user_queries.append(user_query)
-                st.success("Query sent to agents!")
+                st.session_state.agent_responses.append(agent_response)
+                
+                st.success("✅ Agents responded to your query!")
+        
+        # Display query history
+        if st.session_state.user_queries:
+            st.markdown("---")
+            st.header("💬 Query History")
+            
+            for i, (query, response) in enumerate(zip(
+                reversed(st.session_state.user_queries[-3:]),  # Show last 3
+                reversed(st.session_state.agent_responses[-3:])
+            )):
+                with st.expander(f"Query {len(st.session_state.user_queries)-i}: {query[:50]}..."):
+                    st.markdown("**Your Question:**")
+                    st.write(query)
+                    st.markdown("**Agent Response:**")
+                    st.markdown(response)
     
     # Main content area
     if uploaded_file:
@@ -51,20 +145,20 @@ def main():
             
             st.success(f"✅ Loaded dataset with {df.shape[0]} rows and {df.shape[1]} columns")
             
-            # Show data preview
+            # Show data preview - FIXED: Convert all values to native Python types
             with st.expander("📊 Data Preview", expanded=False):
                 st.dataframe(df.head(20))
                 
-                # Basic statistics
+                # Basic statistics - FIXED: Type conversion for st.metric
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("Total Rows", df.shape[0])
+                    st.metric("Total Rows", int(df.shape[0]))
                 with col2:
-                    st.metric("Total Columns", df.shape[1])
+                    st.metric("Total Columns", int(df.shape[1]))
                 with col3:
-                    st.metric("Missing Values", df.isnull().sum().sum())
+                    st.metric("Missing Values", int(df.isnull().sum().sum()))
                 with col4:
-                    st.metric("Duplicates", df.duplicated().sum())
+                    st.metric("Duplicates", int(df.duplicated().sum()))
             
             # Process button
             if st.button("🚀 Start Multi-Agent Processing", type="primary"):
@@ -133,23 +227,23 @@ def main():
                 with tab6:
                     st.header("📈 Before vs After Comparison")
                     
-                    # Comparison metrics
+                    # Comparison metrics - FIXED: Type conversion for st.metric
                     col1, col2 = st.columns(2)
                     
                     with col1:
                         st.subheader("📊 Original Data")
-                        st.metric("Rows", df.shape[0])
-                        st.metric("Missing Values", df.isnull().sum().sum())
-                        st.metric("Duplicates", df.duplicated().sum())
+                        st.metric("Rows", int(df.shape[0]))
+                        st.metric("Missing Values", int(df.isnull().sum().sum()))
+                        st.metric("Duplicates", int(df.duplicated().sum()))
                     
                     with col2:
                         st.subheader("🧽 Cleaned Data")
                         cleaned_df = results['cleaned_dataframe']
-                        st.metric("Rows", cleaned_df.shape[0])
-                        st.metric("Missing Values", cleaned_df.isnull().sum().sum())
-                        st.metric("Duplicates", cleaned_df.duplicated().sum())
+                        st.metric("Rows", int(cleaned_df.shape[0]))
+                        st.metric("Missing Values", int(cleaned_df.isnull().sum().sum()))
+                        st.metric("Duplicates", int(cleaned_df.duplicated().sum()))
                     
-                    # Visualization
+                    # Visualization - FIXED: subplot_titles parameter
                     if not cleaned_df.empty:
                         # Missing values comparison
                         missing_orig = df.isnull().sum()
@@ -199,11 +293,31 @@ def main():
         1. 📁 Upload your medical dataset (CSV or Excel) using the sidebar
         2. 🚀 Click "Start Multi-Agent Processing" to begin
         3. 📊 Review results in the different tabs
-        4. 💬 Interact with agents using the query box in the sidebar
+        4. 💬 **Ask questions to agents** using the query box in the sidebar
         5. 📥 Download cleaned data and generated code
+        
+        ### Example Queries:
+        - "What are the main data quality issues?"
+        - "Which medical terms need validation?"
+        - "How should I clean the missing values?"
+        - "Generate Python code to clean outliers"
+        - "What's the quality of the cleaned data?"
         
         **Note**: Make sure to set your OpenAI API key in the environment variables.
         """)
+        
+        # Show recent query responses even without uploaded file
+        if st.session_state.agent_responses:
+            st.header("💬 Recent Agent Interactions")
+            for i, (query, response) in enumerate(zip(
+                reversed(st.session_state.user_queries[-2:]),
+                reversed(st.session_state.agent_responses[-2:])
+            )):
+                with st.expander(f"Recent Query: {query[:60]}..."):
+                    st.markdown("**Your Question:**")
+                    st.write(query)
+                    st.markdown("**Agent Response:**")
+                    st.markdown(response)
     
     # Footer
     st.markdown("---")
