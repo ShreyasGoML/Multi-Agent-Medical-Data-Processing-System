@@ -92,7 +92,8 @@ class MedicalKnowledgeAgent:
             raise ValueError("DataFrame cannot be empty")
         
         # Target columns
-        target_columns = ['test', 'biomarker', 'chief_remark', 'provisionaldiagnosis', 'finaldiagnosis']
+        # target_columns = ['test', 'biomarker', 'chief_remark', 'provisionaldiagnosis', 'finaldiagnosis']
+        target_columns = ['test', 'biomarker', 'profile_name', 'chief_remark', 'clinical_note', 'lab_testname_col', 'provisionaldiagnosis', 'finaldiagnosis']
         print(f"Analyzing medical terminology in columns: {target_columns}")
         
         unique_terms = self.extract_medical_terms(dataframe, target_columns)

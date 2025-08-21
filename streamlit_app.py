@@ -6,7 +6,7 @@ import json
 from orchestrator import MedicalDataOrchestrator
 
 st.set_page_config(
-    page_title="GoML Multi-Agent Medical Data Cleaning System",
+    page_title="Multi-Agent Medical Data Cleaning System",
     page_icon="🏥",
     layout="wide"
 )
@@ -350,18 +350,16 @@ def main():
     else:
         # Welcome screen
         st.markdown("""
-        ## Welcome to the Simplified 3-Agent Medical Data Cleaning System
-        
-        This streamlined system uses **3 specialized AI agents** for efficient medical data cleaning:
+        ## This streamlined system uses **3 specialized AI agents** for efficient medical data cleaning:
         
         - 🔍 **Data Analysis Agent**: Identifies data quality issues and patterns
         - 🏥 **Medical Knowledge Agent**: Validates and corrects medical terminology
         - 🧹 **Data Cleaning Agent**: Applies all corrections directly to your dataset
         
         ### Simple 3-Step Process:
-        1. 📁 Upload your medical dataset (CSV or Excel)
-        2. 🚀 Click "Start 3-Agent Processing Pipeline"
-        3. 📥 Download your cleaned dataset with all corrections applied
+        1. Upload your medical dataset (CSV or Excel)
+        2. Click "Agent Processing Pipeline"
+        3. Download your cleaned dataset with all corrections applied
         
         ### What Gets Cleaned:
         - ✅ Medical terminology corrections (typos, abbreviations, standardizations)
@@ -370,12 +368,8 @@ def main():
         - ✅ Outlier handling
         - ✅ Text standardization
         
-        **Note**: Set your OpenAI API key in environment variables before starting.
         """)
     
-    # Footer
-    st.markdown("---")
-    st.markdown("🏥 **GoML August Hackathon** - Simplified 3-Agent Medical Data Cleaning System")
 
 if __name__ == "__main__":
     main()
