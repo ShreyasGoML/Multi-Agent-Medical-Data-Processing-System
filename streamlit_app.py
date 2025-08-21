@@ -6,7 +6,7 @@ import json
 from orchestrator import MedicalDataOrchestrator
 
 st.set_page_config(
-    page_title="Multi-Agent Medical Data Cleaning System",
+    page_title="GoML Multi-Agent Medical Data Cleaning System",
     page_icon="🏥",
     layout="wide"
 )
@@ -30,24 +30,12 @@ def process_user_query(query: str, df: pd.DataFrame = None, results: dict = None
             agent_response = orchestrator.medical_knowledge_agent.validate(df)
             return f"**Medical Knowledge Agent Response:**\n{json.dumps(agent_response, indent=2)}"
     
-    elif any(word in query_lower for word in ['clean', 'cleaning', 'strategy', 'impute', 'outlier']):
+    elif any(word in query_lower for word in ['clean', 'cleaning', 'fix', 'correct']):
         if results and 'analysis_result' in results and 'validation_result' in results:
-            agent_response = orchestrator.cleaning_strategy_agent.plan(
-                results['analysis_result'], 
-                results['validation_result']
+            agent_response = orchestrator.data_cleaning_agent.clean_data(
+                df, results['analysis_result'], results['validation_result']
             )
-            return f"**Cleaning Strategy Agent Response:**\n{json.dumps(agent_response, indent=2)}"
-    
-    elif any(word in query_lower for word in ['code', 'generate', 'python', 'script']):
-        if results and 'cleaning_strategy' in results:
-            agent_response = orchestrator.code_generation_agent.generate_code(results['cleaning_strategy'])
-            return f"**Code Generation Agent Response:**\n``````"
-    
-    elif any(word in query_lower for word in ['quality', 'qa', 'assurance', 'validate']):
-        if results and 'cleaned_dataframe' in results:
-            original_df = results.get('original_dataframe', df)
-            agent_response = orchestrator.qa_agent.validate(original_df, results['cleaned_dataframe'])
-            return f"**Quality Assurance Agent Response:**\n{json.dumps(agent_response, indent=2)}"
+            return f"**Data Cleaning Agent Response:**\n{json.dumps(agent_response['quality_report'], indent=2)}"
     
     # General query - route to most appropriate agent or provide guidance
     return f"""
@@ -58,30 +46,28 @@ def process_user_query(query: str, df: pd.DataFrame = None, results: dict = None
     I can help you with:
     - **Data Analysis**: Ask about missing values, duplicates, data quality
     - **Medical Knowledge**: Ask about medical terminology, diagnoses, biomarkers  
-    - **Cleaning Strategy**: Ask about data cleaning approaches and methods
-    - **Code Generation**: Ask for Python code to clean your data
-    - **Quality Assurance**: Ask about data validation and quality checks
+    - **Data Cleaning**: Ask about cleaning results and applied corrections
     
     Please be more specific about what you'd like to know!
     """
 
 def display_terminology_report(validation_result):
-    """Display medical terminology validation results in a user-friendly format"""
+    """Display medical terminology validation results"""
     
     if "terminology_report" in validation_result:
         terminology_report = validation_result["terminology_report"]
         summary = validation_result.get("summary", {})
         
-        # Display summary metrics
+        # Display summary metrics - FIXED: Convert to int safely
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("Spelling Corrections", summary.get("corrections_count", 0))
+            st.metric("Spelling Corrections", int(summary.get("corrections_count", 0)))
         with col2:
-            st.metric("Standardizations", summary.get("standardizations_count", 0))
+            st.metric("Standardizations", int(summary.get("standardizations_count", 0)))
         with col3:
-            st.metric("Abbreviation Expansions", summary.get("expansions_count", 0))
+            st.metric("Abbreviation Expansions", int(summary.get("expansions_count", 0)))
         with col4:
-            st.metric("Total Issues Found", summary.get("total_issues", 0))
+            st.metric("Total Issues Found", int(summary.get("total_issues", 0)))
         
         # Display detailed findings
         if terminology_report.get("corrections"):
@@ -110,8 +96,54 @@ def display_terminology_report(validation_result):
     else:
         st.json(validation_result)
 
+def display_cleaning_results(cleaning_result):
+    """Display cleaning results in a user-friendly format"""
+    
+    quality_report = cleaning_result.get("quality_report", {})
+    
+    # FIXED: Convert all values to int for st.metric
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        score = quality_report.get('data_quality_score', 0)
+        st.metric("Quality Score", f"{int(score)}/100")
+    with col2:
+        corrections = quality_report.get('medical_corrections_applied', 0)
+        st.metric("Medical Corrections", int(corrections))
+    with col3:
+        missing_reduced = quality_report.get('missing_values_reduced', 0)
+        st.metric("Missing Values Reduced", int(missing_reduced))
+    with col4:
+        duplicates_removed = quality_report.get('duplicates_removed', 0)
+        st.metric("Duplicates Removed", int(duplicates_removed))
+    
+    # Display cleaning summary
+    if 'cleaning_summary' in quality_report:
+        st.subheader("🧹 Cleaning Operations Applied")
+        for i, operation in enumerate(quality_report['cleaning_summary'], 1):
+            st.text(f"{i}. {operation}")
+    
+    # Display before/after comparison - FIXED: Handle tuples properly
+    if 'original_shape' in quality_report and 'cleaned_shape' in quality_report:
+        st.subheader("📊 Before vs After")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**Original Data:**")
+            original_shape = quality_report['original_shape']
+            if isinstance(original_shape, tuple):
+                st.write(f"Shape: {original_shape[0]} rows × {original_shape[1]} columns")
+            else:
+                st.write(f"Shape: {original_shape}")
+        with col2:
+            st.write("**Cleaned Data:**")
+            cleaned_shape = quality_report['cleaned_shape']
+            if isinstance(cleaned_shape, tuple):
+                st.write(f"Shape: {cleaned_shape[0]} rows × {cleaned_shape[1]} columns")
+            else:
+                st.write(f"Shape: {cleaned_shape}")
+
 def main():
     st.title("🏥 GoML Multi-Agent Medical Data Cleaning System")
+    st.markdown("**Simplified 3-Agent Architecture: Data Analysis → Medical Validation → Direct Cleaning**")
     st.markdown("---")
     
     # Initialize session state for queries and responses
@@ -136,7 +168,7 @@ def main():
         st.header("🤖 Agent Interaction")
         user_query = st.text_area(
             "Ask the agents:", 
-            placeholder="Example: 'Analyze the missing values in my data' or 'What medical terms need validation?'"
+            placeholder="Example: 'What medical terms were corrected?' or 'Show me the cleaning results'"
         )
         
         if st.button("💬 Send Query"):
@@ -146,10 +178,14 @@ def main():
                 current_results = None
                 
                 if uploaded_file:
-                    if uploaded_file.name.endswith('.csv'):
-                        current_df = pd.read_csv(uploaded_file)
-                    else:
-                        current_df = pd.read_excel(uploaded_file)
+                    try:
+                        if uploaded_file.name.endswith('.csv'):
+                            current_df = pd.read_csv(uploaded_file)
+                        else:
+                            current_df = pd.read_excel(uploaded_file)
+                    except Exception as e:
+                        st.error(f"Error loading file for query: {str(e)}")
+                        current_df = None
                 
                 if 'results' in st.session_state:
                     current_results = st.session_state.results
@@ -170,7 +206,7 @@ def main():
             st.header("💬 Query History")
             
             for i, (query, response) in enumerate(zip(
-                reversed(st.session_state.user_queries[-3:]),  # Show last 3
+                reversed(st.session_state.user_queries[-3:]),
                 reversed(st.session_state.agent_responses[-3:])
             )):
                 with st.expander(f"Query {len(st.session_state.user_queries)-i}: {query[:50]}..."):
@@ -190,11 +226,11 @@ def main():
             
             st.success(f"✅ Loaded dataset with {df.shape[0]} rows and {df.shape[1]} columns")
             
-            # Show data preview - FIXED: Convert all values to native Python types
-            with st.expander("📊 Data Preview", expanded=False):
+            # Show data preview - FIXED: Proper int conversion
+            with st.expander("📊 Original Data Preview", expanded=False):
                 st.dataframe(df.head(20))
                 
-                # Basic statistics - FIXED: Type conversion for st.metric
+                # Basic statistics - FIXED: Extract int from tuples
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
                     st.metric("Total Rows", int(df.shape[0]))
@@ -206,26 +242,27 @@ def main():
                     st.metric("Duplicates", int(df.duplicated().sum()))
             
             # Process button
-            if st.button("🚀 Start Multi-Agent Processing", type="primary"):
-                with st.spinner("🤖 Multi-Agent System Processing..."):
-                    orchestrator = MedicalDataOrchestrator()
-                    results = orchestrator.process_data(df)
-                    st.session_state.results = results
-                
-                st.success("✅ Multi-Agent Processing Complete!")
+            if st.button("🚀 Start 3-Agent Processing Pipeline", type="primary"):
+                with st.spinner("🤖 Running 3-Agent Pipeline: Analysis → Validation → Cleaning..."):
+                    try:
+                        orchestrator = MedicalDataOrchestrator()
+                        results = orchestrator.process_data(df)
+                        st.session_state.results = results
+                        st.success("✅ 3-Agent Pipeline Complete! Your cleaned dataset is ready for download.")
+                    except Exception as e:
+                        st.error(f"Error during processing: {str(e)}")
+                        st.error("Please check your data format and try again.")
             
             # Display results if available
             if 'results' in st.session_state:
                 results = st.session_state.results
                 
-                # Create tabs for different result sections
-                tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+                # Create tabs for the 3 agents
+                tab1, tab2, tab3, tab4 = st.tabs([
                     "📊 Data Analysis", 
                     "🏥 Medical Validation", 
-                    "🧹 Cleaning Strategy", 
-                    "💻 Generated Code", 
-                    "✅ Quality Assurance",
-                    "📈 Comparison Dashboard"
+                    "🧹 Cleaning Results",
+                    "📥 Download Clean Data"
                 ])
                 
                 with tab1:
@@ -234,49 +271,24 @@ def main():
                 
                 with tab2:
                     st.header("🏥 Medical Knowledge Validation")
-                    # Use the enhanced display for terminology validation
                     validation_result = results['validation_result']['validation_result']
                     display_terminology_report(validation_result)
                 
                 with tab3:
-                    st.header("🧹 Cleaning Strategy")
-                    st.json(results['cleaning_strategy'])
+                    st.header("🧹 Data Cleaning Results")
+                    display_cleaning_results(results['cleaning_result'])
                 
                 with tab4:
-                    st.header("💻 Generated Cleaning Code")
-                    st.code(results['generated_code'], language='python')
+                    st.header("📥 Download Cleaned Dataset")
                     
-                    if st.button("📥 Download Code"):
-                        st.download_button(
-                            label="Download Python Code",
-                            data=results['generated_code'],
-                            file_name="medical_data_cleaning.py",
-                            mime="text/python"
-                        )
-                
-                with tab5:
-                    st.header("✅ Quality Assurance Report")
-                    st.json(results['qa_result'])
+                    # Display cleaned data preview
+                    cleaned_df = results['cleaned_dataframe']
+                    st.subheader("🧽 Cleaned Dataset Preview")
+                    st.success("✨ This dataset includes all medical terminology corrections and data quality improvements!")
+                    st.dataframe(cleaned_df.head(20))
                     
-                    # Display cleaned data
-                    st.subheader("🧽 Cleaned Dataset")
-                    st.dataframe(results['cleaned_dataframe'].head(20))
-                    
-                    if st.button("📥 Download Cleaned Data"):
-                        csv = results['cleaned_dataframe'].to_csv(index=False)
-                        st.download_button(
-                            label="Download Cleaned CSV",
-                            data=csv,
-                            file_name="cleaned_medical_data.csv",
-                            mime="text/csv"
-                        )
-                
-                with tab6:
-                    st.header("📈 Before vs After Comparison")
-                    
-                    # Comparison metrics - FIXED: Type conversion for st.metric
+                    # Comparison metrics - FIXED: Proper tuple handling
                     col1, col2 = st.columns(2)
-                    
                     with col1:
                         st.subheader("📊 Original Data")
                         st.metric("Rows", int(df.shape[0]))
@@ -285,20 +297,29 @@ def main():
                     
                     with col2:
                         st.subheader("🧽 Cleaned Data")
-                        cleaned_df = results['cleaned_dataframe']
                         st.metric("Rows", int(cleaned_df.shape[0]))
                         st.metric("Missing Values", int(cleaned_df.isnull().sum().sum()))
                         st.metric("Duplicates", int(cleaned_df.duplicated().sum()))
                     
-                    # Visualization - FIXED: subplot_titles parameter
+                    # Download button
+                    csv = cleaned_df.to_csv(index=False)
+                    st.download_button(
+                        label="📥 Download Complete Cleaned Dataset",
+                        data=csv,
+                        file_name="cleaned_medical_dataset_with_terminology_corrections.csv",
+                        mime="text/csv",
+                        type="primary"
+                    )
+                    
+                    # Visualization comparison - FIXED: Proper tuple handling
                     if not cleaned_df.empty:
-                        # Missing values comparison
+                        st.subheader("📈 Data Quality Improvement Visualization")
                         missing_orig = df.isnull().sum()
                         missing_clean = cleaned_df.isnull().sum()
                         
                         fig = make_subplots(
                             rows=1, cols=2,
-                            subplot_titles=("Original Missing Values", "Cleaned Missing Values"),
+                            subplot_titles=("Original Missing Values", "After Cleaning"),
                             specs=[[{"type": "bar"}, {"type": "bar"}]]
                         )
                         
@@ -315,8 +336,8 @@ def main():
                         fig.update_layout(height=400, showlegend=False)
                         st.plotly_chart(fig, use_container_width=True)
                 
-                # UPDATED: Agent messages displayed as an expander
-                with st.expander("📝 Agent Processing Log", expanded=False):
+                # Agent processing log
+                with st.expander("📝 3-Agent Processing Log", expanded=False):
                     if 'messages' in results and results['messages']:
                         for i, message in enumerate(results['messages']):
                             st.text(f"{i+1}. {message}")
@@ -329,46 +350,32 @@ def main():
     else:
         # Welcome screen
         st.markdown("""
-        ## Welcome to the Multi-Agent Medical Data Cleaning System
+        ## Welcome to the Simplified 3-Agent Medical Data Cleaning System
         
-        This system uses **5 specialized AI agents** orchestrated with **Langraph** to clean and validate medical data:
+        This streamlined system uses **3 specialized AI agents** for efficient medical data cleaning:
         
-        - 🔍 **Data Analysis Agent**: Identifies data quality issues and inconsistencies
-        - 🏥 **Medical Knowledge Agent**: Validates medical terminology and clinical data
-        - 🧹 **Cleaning Strategy Agent**: Determines optimal cleaning approaches
-        - 💻 **Code Generation Agent**: Creates executable Python code for data cleaning
-        - ✅ **Quality Assurance Agent**: Validates cleaned data and ensures accuracy
+        - 🔍 **Data Analysis Agent**: Identifies data quality issues and patterns
+        - 🏥 **Medical Knowledge Agent**: Validates and corrects medical terminology
+        - 🧹 **Data Cleaning Agent**: Applies all corrections directly to your dataset
         
-        ### Instructions:
-        1. 📁 Upload your medical dataset (CSV or Excel) using the sidebar
-        2. 🚀 Click "Start Multi-Agent Processing" to begin
-        3. 📊 Review results in the different tabs
-        4. 💬 **Ask questions to agents** using the query box in the sidebar
-        5. 📥 Download cleaned data and generated code
+        ### Simple 3-Step Process:
+        1. 📁 Upload your medical dataset (CSV or Excel)
+        2. 🚀 Click "Start 3-Agent Processing Pipeline"
+        3. 📥 Download your cleaned dataset with all corrections applied
         
-        ### Example Queries:
-        - "What are the main data quality issues?"
-        - "Which medical terms need validation?"
-        - "How should I clean the missing values?"
-        - "Generate Python code to clean outliers"
-        - "What's the quality of the cleaned data?"
+        ### What Gets Cleaned:
+        - ✅ Medical terminology corrections (typos, abbreviations, standardizations)
+        - ✅ Missing value imputation
+        - ✅ Duplicate removal
+        - ✅ Outlier handling
+        - ✅ Text standardization
         
-        **Note**: Make sure to set your OpenAI API key in the environment variables.
+        **Note**: Set your OpenAI API key in environment variables before starting.
         """)
-        
-        # Show recent query responses even without uploaded file
-        if st.session_state.agent_responses:
-            st.header("💬 Recent Agent Interactions")
-            for i, (query, response) in enumerate(zip(
-                reversed(st.session_state.user_queries[-2:]),
-                reversed(st.session_state.agent_responses[-2:])
-            )):
-                with st.expander(f"Recent Query: {query[:60]}..."):
-                    st.markdown("**Your Question:**")
-                    st.write(query)
-                    st.markdown("**Agent Response:**")
-                    st.markdown(response)
-
+    
+    # Footer
+    st.markdown("---")
+    st.markdown("🏥 **GoML August Hackathon** - Simplified 3-Agent Medical Data Cleaning System")
 
 if __name__ == "__main__":
     main()
